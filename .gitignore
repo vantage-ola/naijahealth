@@ -52,3 +52,5 @@ data/
 *.log
 outputs/
 temp/
+
+.DS_Store
