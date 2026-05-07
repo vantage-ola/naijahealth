@@ -1,5 +1,3 @@
-# Index embedded chunks into Qdrant.
-
 from __future__ import annotations
 
 import logging

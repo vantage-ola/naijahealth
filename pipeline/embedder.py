@@ -1,5 +1,3 @@
-# Cohere embed-multilingual-v3 async batch embedder.
-
 from __future__ import annotations
 
 import asyncio

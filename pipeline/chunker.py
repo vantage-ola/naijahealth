@@ -1,5 +1,3 @@
-# Convert validated NAFDAC records into structured text chunks for embedding.
-
 from __future__ import annotations
 
 import hashlib
