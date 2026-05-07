@@ -1,44 +1,44 @@
-# Qdrant collection configuration and schemas.
+from __future__ import annotations
 
-import requests
+import logging
+
+from qdrant_client import AsyncQdrantClient
+from qdrant_client.http import models as qm
+
 from core.config import get_config
 
+logger = logging.getLogger(__name__)
 
-def init_qdrant():
-    config = get_config()
-    return {
-        "url": config.qdrant_url,
-        "api_key": config.qdrant_api_key,
-        "collection_name": config.qdrant_collection_name,
-    }
-    
-def http_qdrant(endpoint: str, method: str = "GET"):
+_client: AsyncQdrantClient | None = None
 
-    init = init_qdrant()
 
-    url = f"{init['url']}{endpoint}"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {init['api_key']}",
-    }
+def get_client() -> AsyncQdrantClient:
+    global _client
+    if _client is None:
+        cfg = get_config()
+        _client = AsyncQdrantClient(url=cfg.qdrant_url, api_key=cfg.qdrant_api_key)
+    return _client
 
-    try:
-        if method == "GET":
-            response = requests.get(url, headers=headers)
-        elif method == "POST":
-            response = requests.post(url, headers=headers)
-        elif method ==  "PUT":
-            response = requests.put(url, headers=headers)
-        elif method == "DELETE":
-            response = requests.delete(url, headers=headers)
-        else:
-            raise ValueError(f"Invalid method: {method}")
 
-        response.raise_for_status()
-
-        if response.content:
-            return response.json()
-        return None 
-
-    except requests.exceptions.RequestException as e:
-        raise ValueError(f"HTTP request failed method: {e}")
+async def ensure_collection() -> None:
+    cfg = get_config()
+    client = get_client()
+    collections = await client.get_collections()
+    names = {c.name for c in collections.collections}
+    if cfg.qdrant_collection_name in names:
+        return
+    await client.create_collection(
+        collection_name=cfg.qdrant_collection_name,
+        vectors_config=qm.VectorParams(size=cfg.qdrant_vector_size, distance=qm.Distance.COSINE),
+    )
+    logger.info("created qdrant collection %s", cfg.qdrant_collection_name)
+    await client.create_payload_index(
+        collection_name=cfg.qdrant_collection_name,
+        field_name="source",
+        field_schema=qm.PayloadSchemaType.KEYWORD,
+    )
+    await client.create_payload_index(
+        collection_name=cfg.qdrant_collection_name,
+        field_name="nafdac_number",
+        field_schema=qm.PayloadSchemaType.KEYWORD,
+    )
