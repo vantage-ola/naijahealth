@@ -17,10 +17,12 @@ class Config(BaseSettings):
     qdrant_api_key: str | None = None
     qdrant_vector_size: int = 1024
 
-    # Cohere embedder
+    # Cohere embedder + generator
     cohere_api_key: str | None = None
     cohere_embed_model: str = "embed-multilingual-v3.0"
+    cohere_generate_model: str = "command-r-plus-08-2024"
     embed_batch_size: int = 96
+    rag_top_k: int = 5
 
     # Scraper
     scraper_output_dir: str = "data"
@@ -29,6 +31,11 @@ class Config(BaseSettings):
     scrape_hour: int = 2
     scrape_minute: int = 0
     run_pipeline_after_scrape: bool = True
+
+    # WhatsApp Cloud API
+    whatsapp_access_token: str | None = None
+    whatsapp_phone_number_id: str | None = None
+    whatsapp_verify_token: str = "naijahealth_verify"
 
     model_config = SettingsConfigDict(env_file=".env")
 
