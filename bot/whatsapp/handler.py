@@ -47,4 +47,7 @@ async def handle_message(from_number: str, user_text: str) -> None:
             "Sorry, I couldn't process your request right now. "
             "Please try again or visit nafdac.gov.ng for official information."
         )
-    await _send_message(from_number, reply)
+    try:
+        await _send_message(from_number, reply)
+    except Exception:
+        logger.exception("failed to send reply to %s", from_number)
