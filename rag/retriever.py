@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from core.config import get_config
-from db.qdrant.collections import get_client
+from db.qdrant.collections import ensure_collection, get_client
 from pipeline.embedder import Embedder
 
 logger = logging.getLogger(__name__)
@@ -26,6 +26,7 @@ async def retrieve(query: str, top_k: int | None = None) -> list[dict[str, Any]]
     embedder = _get_embedder()
     vector = await embedder.embed_query(query)
 
+    await ensure_collection()
     client = get_client()
     results = await client.search(
         collection_name=cfg.qdrant_collection_name,
