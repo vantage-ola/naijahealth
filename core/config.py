@@ -36,6 +36,7 @@ class Config(BaseSettings):
     whatsapp_access_token: str | None = None
     whatsapp_phone_number_id: str | None = None
     whatsapp_verify_token: str = "naijahealth_verify"
+    whatsapp_webhook_secret: str | None = None  # App Secret from Meta dashboard
 
     model_config = SettingsConfigDict(env_file=".env")
 
