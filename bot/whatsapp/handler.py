@@ -10,7 +10,7 @@ from rag.engine import answer
 
 logger = logging.getLogger(__name__)
 
-_GRAPH_URL = "https://graph.facebook.com/v19.0"
+_GRAPH_URL = "https://graph.facebook.com/v25.0"
 
 
 async def _send_message(to: str, text: str) -> None:
