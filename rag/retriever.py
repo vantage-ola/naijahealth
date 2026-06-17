@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from core.config import get_config
-from db.qdrant.collections import ensure_collection, get_client
+from db.qdrant.collections import ensure_collection, search_points
 from pipeline.embedder import Embedder
 
 logger = logging.getLogger(__name__)
@@ -27,27 +27,19 @@ async def retrieve(query: str, top_k: int | None = None) -> list[dict[str, Any]]
     vector = await embedder.embed_query(query)
 
     await ensure_collection()
-    client = get_client()
-    results = await client.search(
-        collection_name=cfg.qdrant_collection_name,
-        query_vector=vector,
-        limit=k,
-        with_payload=True,
-    )
+    results = await search_points(vector, limit=k)
 
     hits = []
     for r in results:
-        payload = r.payload or {}
-        hits.append(
-            {
-                "score": r.score,
-                "product_id": payload.get("product_id"),
-                "product_name": payload.get("product_name"),
-                "source": payload.get("source"),
-                "nafdac_number": payload.get("nafdac_number"),
-                "text": payload.get("text", ""),
-            }
-        )
+        payload = r.get("payload") or {}
+        hits.append({
+            "score": r.get("score", 0),
+            "product_id": payload.get("product_id"),
+            "product_name": payload.get("product_name"),
+            "source": payload.get("source"),
+            "nafdac_number": payload.get("nafdac_number"),
+            "text": payload.get("text", ""),
+        })
 
     logger.debug("retrieved %d hits for query=%r", len(hits), query[:60])
     return hits
