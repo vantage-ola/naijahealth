@@ -41,6 +41,9 @@ class Config(BaseSettings):
     # Telegram
     telegram_bot_token: str | None = None
 
+    # Admin
+    admin_token: str | None = None
+
     model_config = SettingsConfigDict(env_file=".env")
 
 
