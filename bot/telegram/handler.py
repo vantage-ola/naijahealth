@@ -4,7 +4,7 @@ import logging
 
 import httpx
 
-from bot.whatsapp.formatter import format_answer
+from bot.telegram.formatter import format_answer
 from core.config import get_config
 from rag.engine import answer
 
@@ -27,7 +27,7 @@ async def _send_chat_action(client: httpx.AsyncClient, chat_id: int) -> None:
 async def _send_message(client: httpx.AsyncClient, chat_id: int, text: str) -> None:
     resp = await client.post(
         _url("sendMessage"),
-        json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"},
+        json={"chat_id": chat_id, "text": text},
     )
     if resp.status_code != 200:
         logger.error("sendMessage failed %s: %s", resp.status_code, resp.text)
