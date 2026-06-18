@@ -27,28 +27,46 @@ def _messages_url() -> str:
 
 
 async def _mark_read(client: httpx.AsyncClient, message_id: str) -> None:
-    payload = {
-        "messaging_product": "whatsapp",
-        "status": "read",
-        "message_id": message_id,
-        "typing_indicator": {"type": "text"},
-    }
     try:
-        await client.post(_messages_url(), json=payload, headers=_headers())
+        await client.post(
+            _messages_url(),
+            headers=_headers(),
+            json={"messaging_product": "whatsapp", "status": "read", "message_id": message_id},
+        )
     except Exception:
-        logger.warning("failed to mark message %s as read", message_id)
+        logger.warning("mark-as-read failed for %s", message_id)
+
+
+async def _show_typing(client: httpx.AsyncClient, to: str) -> None:
+    try:
+        await client.post(
+            _messages_url(),
+            headers=_headers(),
+            json={
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": to,
+                "type": "text",
+                "typing_indicator": {"type": "text"},
+            },
+        )
+    except Exception:
+        logger.warning("typing indicator failed for %s", to)
 
 
 async def _send_text(client: httpx.AsyncClient, to: str, text: str) -> None:
     payload = {
         "messaging_product": "whatsapp",
+        "recipient_type": "individual",
         "to": to,
         "type": "text",
         "text": {"body": text},
     }
     resp = await client.post(_messages_url(), json=payload, headers=_headers())
-    resp.raise_for_status()
-    logger.debug("sent reply to %s: %s", to, resp.json())
+    if resp.status_code != 200:
+        logger.error("send failed %s: %s", resp.status_code, resp.text)
+        resp.raise_for_status()
+    logger.info("reply sent to %s", to)
 
 
 async def handle_message(from_number: str, message_id: str, user_text: str) -> None:
@@ -61,6 +79,7 @@ async def handle_message(from_number: str, message_id: str, user_text: str) -> N
 
     async with httpx.AsyncClient(timeout=30) as client:
         await _mark_read(client, message_id)
+        await _show_typing(client, from_number)
 
         try:
             result = await answer(user_text)
