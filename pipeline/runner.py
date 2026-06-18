@@ -6,7 +6,7 @@ import asyncio
 import json
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
@@ -38,6 +38,17 @@ def _iter_jsonl(path: Path) -> Iterable[dict]:
             yield json.loads(line)
 
 
+def _parse_date(value: str | None) -> date | None:
+    if not value:
+        return None
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(value, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
 def _product_row(chunk: Chunk) -> dict:
     raw = chunk.payload
     return {
@@ -48,8 +59,8 @@ def _product_row(chunk: Chunk) -> dict:
         "applicant_name": raw.get("applicant_name"),
         "manufacturer": raw.get("manufacturer") or raw.get("manufacturer_name"),
         "category": raw.get("product_category") or raw.get("category"),
-        "issue_date": raw.get("approval_date") or raw.get("issue_date") or raw.get("certificate_issued_date"),
-        "expiry_date": raw.get("expiry_date"),
+        "issue_date": _parse_date(raw.get("approval_date") or raw.get("issue_date") or raw.get("certificate_issued_date")),
+        "expiry_date": _parse_date(raw.get("expiry_date")),
         "raw": raw,
         "content_hash": chunk.content_hash,
     }
