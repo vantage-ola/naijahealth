@@ -71,12 +71,6 @@ async def _upsert_products(chunks: list[Chunk]) -> set[str]:
     if not chunks:
         return set()
 
-    # Deduplicate by product_id within the batch — last record wins.
-    seen: dict[str, Chunk] = {}
-    for c in chunks:
-        seen[c.product_id] = c
-    chunks = list(seen.values())
-
     sessionmaker = get_sessionmaker()
     changed: set[str] = set()
 
@@ -159,6 +153,11 @@ async def process_source(source: str, jsonl_path: Path, embedder: Embedder, batc
         nonlocal changed_count, embedded_count
         if not buf:
             return
+        # Deduplicate by product_id before any DB operation — last record wins.
+        deduped: dict[str, Chunk] = {}
+        for c in buf:
+            deduped[c.product_id] = c
+        buf = list(deduped.values())
         changed_ids = await _upsert_products(buf)
         changed_count += len(changed_ids)
         to_embed = [c for c in buf if c.product_id in changed_ids]
