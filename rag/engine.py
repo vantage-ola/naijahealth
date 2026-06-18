@@ -35,12 +35,11 @@ async def answer(query: str) -> RAGResult:
     cfg = get_config()
     hits = await retrieve(query, top_k=cfg.rag_top_k)
 
-    messages = build_prompt(query, hits)
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + build_prompt(query, hits)
     client = _get_client()
 
     response = await client.chat(
         model=cfg.cohere_generate_model,
-        system=SYSTEM_PROMPT,
         messages=messages,
     )
 
