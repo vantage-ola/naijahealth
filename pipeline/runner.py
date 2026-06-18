@@ -71,6 +71,12 @@ async def _upsert_products(chunks: list[Chunk]) -> set[str]:
     if not chunks:
         return set()
 
+    # Deduplicate by product_id within the batch — last record wins.
+    seen: dict[str, Chunk] = {}
+    for c in chunks:
+        seen[c.product_id] = c
+    chunks = list(seen.values())
+
     sessionmaker = get_sessionmaker()
     changed: set[str] = set()
 
