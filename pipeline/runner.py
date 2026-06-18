@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from core.config import get_config
 from db.postgres.models import Chunk as ChunkRow, Product
 from db.postgres.session import get_sessionmaker
+from db.qdrant.collections import ensure_collection
 from pipeline.chunker import Chunk, chunk_record
 from pipeline.embedder import Embedder
 from pipeline.indexer import point_id_for, upsert_chunks
@@ -144,34 +145,41 @@ async def process_source(source: str, jsonl_path: Path, embedder: Embedder, batc
         logger.warning("missing jsonl for %s: %s", source, jsonl_path)
         return {"records": 0, "changed": 0, "embedded": 0}
 
+    await ensure_collection()
+
     total = 0
     changed_count = 0
     embedded_count = 0
+    error_count = 0
     pending: list[Chunk] = []
 
     async def flush(buf: list[Chunk]) -> None:
-        nonlocal changed_count, embedded_count
+        nonlocal changed_count, embedded_count, error_count
         if not buf:
             return
-        # Deduplicate by product_id before any DB operation — last record wins.
+        # Deduplicate within batch by product_id — last record wins.
         deduped: dict[str, Chunk] = {}
         for c in buf:
             deduped[c.product_id] = c
         buf = list(deduped.values())
-        changed_ids = await _upsert_products(buf)
-        changed_count += len(changed_ids)
-        to_embed = [c for c in buf if c.product_id in changed_ids]
-        if to_embed:
-            vectors = await embedder.embed_documents([c.text for c in to_embed])
-            await upsert_chunks(to_embed, vectors)
-            await _record_chunks(to_embed)
-            embedded_count += len(to_embed)
+        try:
+            changed_ids = await _upsert_products(buf)
+            changed_count += len(changed_ids)
+            to_embed = [c for c in buf if c.product_id in changed_ids]
+            if to_embed:
+                vectors = await embedder.embed_documents([c.text for c in to_embed])
+                await upsert_chunks(to_embed, vectors)
+                await _record_chunks(to_embed)
+                embedded_count += len(to_embed)
+        except Exception:
+            logger.exception("%s: batch of %d failed, skipping", source, len(buf))
+            error_count += len(buf)
 
     for raw in _iter_jsonl(jsonl_path):
         try:
             chunk = chunk_record(source, raw)
-        except KeyError as exc:
-            logger.warning("skipping %s record (missing %s)", source, exc)
+        except (KeyError, Exception) as exc:
+            logger.warning("skipping %s record: %s", source, exc)
             continue
         pending.append(chunk)
         total += 1
@@ -181,9 +189,10 @@ async def process_source(source: str, jsonl_path: Path, embedder: Embedder, batc
 
     await flush(pending)
     logger.info(
-        "%s: %d records, %d changed, %d embedded", source, total, changed_count, embedded_count
+        "%s: %d records, %d changed, %d embedded, %d errors",
+        source, total, changed_count, embedded_count, error_count,
     )
-    return {"records": total, "changed": changed_count, "embedded": embedded_count}
+    return {"records": total, "changed": changed_count, "embedded": embedded_count, "errors": error_count}
 
 
 async def run(sources: list[str] | None = None, data_dir: Path | None = None) -> dict[str, dict]:

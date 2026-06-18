@@ -4,7 +4,7 @@ import logging
 import uuid
 from typing import Sequence
 
-from db.qdrant.collections import ensure_collection, upsert_points
+from db.qdrant.collections import upsert_points
 from pipeline.chunker import Chunk
 
 logger = logging.getLogger(__name__)
@@ -19,8 +19,6 @@ async def upsert_chunks(chunks: Sequence[Chunk], vectors: Sequence[Sequence[floa
         return []
     if len(chunks) != len(vectors):
         raise ValueError("chunk/vector length mismatch")
-
-    await ensure_collection()
 
     points = []
     point_ids = []
