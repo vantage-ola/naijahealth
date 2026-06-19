@@ -5,6 +5,7 @@ from typing import Any
 
 from core.config import get_config
 from db.qdrant.collections import ensure_collection, search_points
+from db.redis import cache
 from pipeline.embedder import Embedder
 
 logger = logging.getLogger(__name__)
@@ -23,8 +24,11 @@ async def retrieve(query: str, top_k: int | None = None) -> list[dict[str, Any]]
     cfg = get_config()
     k = top_k if top_k is not None else cfg.rag_top_k
 
-    embedder = _get_embedder()
-    vector = await embedder.embed_query(query)
+    vector = await cache.get_cached_embedding(query)
+    if vector is None:
+        embedder = _get_embedder()
+        vector = await embedder.embed_query(query)
+        await cache.set_cached_embedding(query, vector, cfg.cache_embed_ttl)
 
     await ensure_collection()
     results = await search_points(vector, limit=k)

@@ -7,6 +7,7 @@ from typing import Any
 import cohere
 
 from core.config import get_config
+from db.redis import cache
 from rag.prompt import SYSTEM_PROMPT, build_prompt
 from rag.retriever import retrieve
 
@@ -33,6 +34,11 @@ class RAGResult:
 
 async def answer(query: str) -> RAGResult:
     cfg = get_config()
+
+    cached = await cache.get_cached_answer(query)
+    if cached is not None:
+        return RAGResult(answer=cached["answer"], sources=cached["sources"])
+
     hits = await retrieve(query, top_k=cfg.rag_top_k)
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + build_prompt(query, hits)
@@ -55,4 +61,5 @@ async def answer(query: str) -> RAGResult:
         }
         for h in hits
     ]
+    await cache.set_cached_answer(query, {"answer": text, "sources": sources}, cfg.cache_answer_ttl)
     return RAGResult(answer=text, sources=sources)

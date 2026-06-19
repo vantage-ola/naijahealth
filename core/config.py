@@ -24,6 +24,12 @@ class Config(BaseSettings):
     embed_batch_size: int = 96
     rag_top_k: int = 5
 
+    # Redis cache
+    redis_url: str = "redis://localhost:6379/0"
+    cache_enabled: bool = True
+    cache_answer_ttl: int = 3600
+    cache_embed_ttl: int = 86400
+
     # Scraper
     scraper_output_dir: str = "data"
 
